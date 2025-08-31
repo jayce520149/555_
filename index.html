@@ -26,15 +26,13 @@
   .rar-purple{background:#26193b;border-color:#5b2ea6;color:#d3a6ff}
   .hint{font-size:12px;color:#9aa8bf;margin-top:6px}
 
-/* 放進你現有的 <style> 區塊中 */
-#artifact-list a {
-  color: #fff !important;           /* 文字改白色 */
-  text-decoration: none !important; /* 去除底線 */
-  pointer-events: none !important;  /* 不能點 */
-  cursor: default !important;       /* 游標改成一般 */
-}
-
-
+  /* 取代超連結：白色、非鏈結外觀，但仍可點擊 */
+  .clickable{
+    color:#fff;
+    text-decoration:none;
+    cursor:pointer;
+  }
+  .clickable:hover{ text-decoration:underline; } /* 不想有底線可刪此行 */
 </style>
 </head>
 <body>
@@ -240,7 +238,6 @@ function calcAll(){
                    '領主隨隊':{步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0}} };
   const troopSum = {步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0},全軍:{atk:0,hp:0}};
 
-  // 左表資料（依當前→12 合併，供元/屬性排序）
   const listRows = [];
 
   for(const it of ITEMS){
@@ -260,7 +257,6 @@ function calcAll(){
 
     if(it.checked){
       kAtk+=agg.atk; kHp+=agg.hp; kEq+=agg.eq; kGold+=gold;
-      // 匯總
       for(const tag of Object.keys(tagSum)){
         for(const t of ['步','弓','騎']){
           tagSum[tag][t].atk += agg.byTagTroop[tag][t].atk;
@@ -297,8 +293,9 @@ function renderAll(){
     tr.appendChild(td0);
 
     const nameTd = document.createElement('td');
-    nameTd.innerHTML = `<a href="javascript:void(0)">${r.it.name}</a>`;
-    nameTd.querySelector('a').addEventListener('click', ()=> showDetail(r.it));
+    /* 不用 a，改 span.clickable，外觀非連結但可點擊 */
+    nameTd.innerHTML = `<span class="clickable">${r.it.name}</span>`;
+    nameTd.querySelector('.clickable').addEventListener('click', ()=> showDetail(r.it));
     tr.appendChild(nameTd);
 
     const rc = r.it.rarity==='金'?'rar-gold':(r.it.rarity==='紫'?'rar-purple':'');
