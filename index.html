@@ -17,7 +17,6 @@
   input,select{width:100%;padding:8px;border-radius:8px;border:1px solid #334155;background:#0b1326;color:var(--fg)}
   .pill{display:inline-flex;gap:8px;align-items:center;background:var(--chip);color:var(--chipfg);padding:4px 10px;border-radius:999px;font-size:12px}
   .btn{background:#111827;border:1px solid var(--line);color:#cbd5e1;padding:6px 10px;border-radius:8px;cursor:pointer}
-  .btn.active{outline:2px solid var(--acc)}
   table{width:100%;border-collapse:collapse} th,td{padding:8px;border-bottom:1px solid var(--line)} th{text-align:left;color:#cbd5e1}
   .right{text-align:right}
   .flex{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -25,14 +24,6 @@
   .rar-gold{background:#3b2a00;border-color:#8b5d00;color:#ffd86b}
   .rar-purple{background:#26193b;border-color:#5b2ea6;color:#d3a6ff}
   .hint{font-size:12px;color:#9aa8bf;margin-top:6px}
-
-  /* 取代超連結：白色、非鏈結外觀，但仍可點擊 */
-  .clickable{
-    color:#fff;
-    text-decoration:none;
-    cursor:pointer;
-  }
-  .clickable:hover{ text-decoration:underline; } /* 不想有底線可刪此行 */
 </style>
 </head>
 <body>
@@ -58,15 +49,14 @@
     <div class="card"><div class="muted">金書 / 金額（元）</div><div id="kCost" style="font-size:22px">0 / 0</div><div class="hint" id="kConv"></div></div>
   </div>
 
-  <!-- 控制列 -->
+  <!-- 控制列（保留只顯示＋搜尋） -->
   <div class="flex" style="margin:12px 0">
-    <button id="planStep" class="btn active">逐步性價比（推薦順序）</button>
-    <button id="planMerge" class="btn">合併至 Lv12（僅影響 KPI 與匯總）</button>
+    <span class="pill">排序：元/等價屬性（所有已勾選文物之每一步）</span>
     <label class="pill"><input id="onlyChecked" type="checkbox" style="margin-right:6px">只顯示已勾選</label>
     <input id="search" placeholder="搜尋名稱…" style="max-width:260px"/>
   </div>
 
-  <!-- 文物清單 -->
+  <!-- 文物清單（當前 → 12 合併，供總體性價比與 KPI 用） -->
   <div class="card">
     <table>
       <thead>
@@ -86,10 +76,9 @@
       </thead>
       <tbody id="tblArtifacts"></tbody>
     </table>
-    <div class="hint">點「文物名稱」可展開該文物 <b>當前 → Lv12</b> 的逐級性價比明細。</div>
   </div>
 
-  <!-- 推薦升級順序（逐步） -->
+  <!-- 逐步性價比（推薦升級順序） -->
   <div class="card" style="margin-top:12px">
     <div class="flex"><span class="pill">逐步性價比（所有已勾選文物之每一步，以 元/等價屬性 排序）</span></div>
     <table>
@@ -102,22 +91,6 @@
         </tr>
       </thead>
       <tbody id="tblSteps"></tbody>
-    </table>
-  </div>
-
-  <!-- 單件文物逐級明細 -->
-  <div class="card" style="margin-top:12px" id="detailCard" hidden>
-    <div class="pill" id="detailTitle">單件明細</div>
-    <table>
-      <thead>
-        <tr>
-          <th>步驟</th>
-          <th class="right">步</th><th class="right">弓</th><th class="right">騎</th>
-          <th class="right">攻擊</th><th class="right">生命</th><th class="right">等價屬性</th>
-          <th class="right">金書</th><th class="right">金額</th><th class="right">元/屬性</th>
-        </tr>
-      </thead>
-      <tbody id="tblDetail"></tbody>
     </table>
   </div>
 
@@ -143,17 +116,16 @@
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const nf = (n,d=2)=> (Math.round((+n||0)*10**d)/10**d).toFixed(d);
-const sum = a => a.reduce((x,y)=>x+y,0);
 
 /* 等級累進（祝福、只對 Lv5→12 有意義） */
 const CUM_PCT = {5:0.40,6:0.48,7:0.56,8:0.64,9:0.73,10:0.82,11:0.91,12:1.00};
-/* 書本成本（以金書等價計價；fromLv: 5..11） */
+/* 書本成本（以金書等價；fromLv: 5..11） */
 const GOLD_BOOKS_FROM = {5:40/6, 6:80/6, 7:120/6, 8:40, 9:80, 10:120, 11:160};
 const PURPLE_PER_GOLD = 6, BLUE_PER_GOLD = 36, GREEN_PER_GOLD = 216;
 
 let RAW = [];     // from Excel
 let ITEMS = [];   // grouped
-let STATE = {weights:{atk:1, hp:0.9}, price:1.76, onlyChecked:false, search:'', view:'step', detail:null};
+let STATE = {weights:{atk:1, hp:0.9}, price:1.76, onlyChecked:false, search:''};
 
 /* ---------- 載入 Excel ---------- */
 async function loadExcel(){
@@ -231,7 +203,6 @@ function aggregate(rows, weights){
 
 function calcAll(){
   const weights = STATE.weights, price = STATE.price;
-  // KPI 與匯總採「合併至 Lv12」模式（當前→12）
   let kAtk=0,kHp=0,kEq=0,kGold=0;
   const tagSum = { '狂熱':{步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0}},
                    '基礎白字':{步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0}},
@@ -293,9 +264,7 @@ function renderAll(){
     tr.appendChild(td0);
 
     const nameTd = document.createElement('td');
-    /* 不用 a，改 span.clickable，外觀非連結但可點擊 */
-    nameTd.innerHTML = `<span class="clickable">${r.it.name}</span>`;
-    nameTd.querySelector('.clickable').addEventListener('click', ()=> showDetail(r.it));
+    nameTd.textContent = r.it.name;  // 白字，無超連結
     tr.appendChild(nameTd);
 
     const rc = r.it.rarity==='金'?'rar-gold':(r.it.rarity==='紫'?'rar-purple':'');
@@ -324,13 +293,13 @@ function renderAll(){
   $('#kCost').textContent=`${nf(kGold,2)} / ${nf(kGold*STATE.price)}`;
   $('#kConv').textContent=`≈ ${nf(kGold*PURPLE_PER_GOLD,0)} 紫書、${nf(kGold*BLUE_PER_GOLD,0)} 藍書、${nf(kGold*GREEN_PER_GOLD,0)} 綠書`;
 
-  renderSteps();        // 逐步性價比
+  renderSteps();        // 逐步性價比（推薦順序）
   renderTotals(tagSum, troopSum);
 }
 
 function tdRight(txt){ const td=document.createElement('td'); td.className='right'; td.textContent=txt; return td; }
 
-/* 逐步性價比：列出所有勾選文物「當前→12」每一步，按元/屬性排序 */
+/* 逐步性價比：列出所有勾選文物「當前→12」每一步，按元/等價屬性排序 */
 function renderSteps(){
   const tb = $('#tblSteps'); tb.innerHTML='';
   const price = STATE.price, w = STATE.weights;
@@ -354,42 +323,15 @@ function renderSteps(){
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><div class="flex"><b>Lv.${r.lv}→${r.lv+1}</b> ${r.it.name} <span class="tag">${r.tags}</span></div></td>
-      <td class="right">${nf(r.agg.troops.步.atk + r.agg.troops.步.hp*0)}</td>
-      <td class="right">${nf(r.agg.troops.弓.atk + r.agg.troops.弓.hp*0)}</td>
-      <td class="right">${nf(r.agg.troops.騎.atk + r.agg.troops.騎.hp*0)}</td>
+      <td class="right">${nf(r.agg.troops.步.atk)}</td>
+      <td class="right">${nf(r.agg.troops.弓.atk)}</td>
+      <td class="right">${nf(r.agg.troops.騎.atk)}</td>
       <td class="right">${nf(r.agg.atk)}</td>
       <td class="right">${nf(r.agg.hp)}</td>
       <td class="right">${nf(r.agg.eq)}</td>
       <td class="right" title="${nf(r.gold*PURPLE_PER_GOLD,0)} 紫書">${nf(r.gold,2)}</td>
       <td class="right">${nf(r.cost)}</td>
       <td class="right">${r.agg.eq>0?nf(r.cost/r.agg.eq):'—'}</td>`;
-    tb.appendChild(tr);
-  }
-}
-
-/* 單件文物逐級明細（點文物名稱顯示） */
-function showDetail(it){
-  const card = $('#detailCard'); card.hidden=false;
-  $('#detailTitle').textContent = `${it.name}（Lv.${it.lv} → 12）逐級性價比`;
-  const tb = $('#tblDetail'); tb.innerHTML='';
-  const start = Math.max(5, Math.min(11, Number(it.lv)||5));
-  const w=STATE.weights, price=STATE.price;
-
-  for(let lv=start; lv<=11; lv++){
-    const agg = aggregate(collectStepRows(it, lv), w);
-    const gold = GOLD_BOOKS_FROM[lv]||0, cost=gold*price, unit=agg.eq>0?cost/agg.eq:Infinity;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>Lv.${lv} → ${lv+1}</td>
-      <td class="right">${nf(agg.troops.步.atk)}</td>
-      <td class="right">${nf(agg.troops.弓.atk)}</td>
-      <td class="right">${nf(agg.troops.騎.atk)}</td>
-      <td class="right">${nf(agg.atk)}</td>
-      <td class="right">${nf(agg.hp)}</td>
-      <td class="right">${nf(agg.eq)}</td>
-      <td class="right" title="${nf(gold*PURPLE_PER_GOLD,0)} 紫書">${nf(gold,2)}</td>
-      <td class="right">${nf(cost)}</td>
-      <td class="right">${agg.eq>0?nf(unit):'—'}</td>`;
     tb.appendChild(tr);
   }
 }
@@ -426,8 +368,6 @@ $('#wHp').addEventListener('input',renderAll);
 $('#price').addEventListener('input',renderAll);
 $('#onlyChecked').addEventListener('change',e=>{STATE.onlyChecked=e.target.checked;renderAll();});
 $('#search').addEventListener('input',e=>{STATE.search=e.target.value.trim();renderAll();});
-$('#planStep').addEventListener('click',()=>{$('#planStep').classList.add('active');$('#planMerge').classList.remove('active');});
-$('#planMerge').addEventListener('click',()=>{$('#planMerge').classList.add('active');$('#planStep').classList.remove('active');});
 
 loadExcel();
 </script>
