@@ -51,7 +51,10 @@
 
   <!-- 控制列（保留只顯示＋搜尋） -->
   <div class="flex" style="margin:12px 0">
+
+    
     <span class="pill">排序：元/等價屬性（所有已勾選文物之每一步）</span>
+    <span id="cntArtifacts" class="pill">文物：已選 0 / 全部 0</span>
     <label class="pill"><input id="onlyChecked" type="checkbox" style="margin-right:6px">只顯示已勾選</label>
     <input id="search" placeholder="搜尋名稱…" style="max-width:260px"/>
   </div>
@@ -249,7 +252,9 @@ function renderAll(){
   STATE.weights.atk = Number($('#wAtk').value)||1;
   STATE.weights.hp  = Number($('#wHp').value)||0.9;
   STATE.price       = Number($('#price').value)||1.76;
-
+  const totalCnt   = ITEMS.length;
+  const checkedCnt = ITEMS.reduce((n, it) => n + (it.checked ? 1 : 0), 0);
+  const badge = $('#cntArtifacts'); if (badge) badge.textContent = `文物：已選 ${checkedCnt} / 全部 ${totalCnt}`;
   const {listRows, kAtk,kHp,kEq,kGold, tagSum, troopSum} = calcAll();
 
   // 左表
