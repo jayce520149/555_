@@ -11,9 +11,7 @@
   .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
   h1{font-size:20px;margin:0 0 12px}
   .row{display:grid;gap:12px}
-  .row.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
   .row.c4{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .row.c6{grid-template-columns:repeat(6,minmax(0,1fr))}
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
   .muted{color:var(--muted)}
   input,select{width:100%;padding:8px;border-radius:8px;border:1px solid #334155;background:#0b1326;color:var(--fg)}
@@ -30,28 +28,10 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>文物性價比（M&X維護）</h1>
-
-  <!-- 起始白字加成 + 最終白字總加成 -->
-  <div class="card">
-    <div class="muted" style="margin-bottom:6px">起始白字加成（僅做顯示；單位＝屬性點）</div>
-    <div class="row c6">
-      <div><div class="muted">步 攻擊</div><input id="initAtk步" type="number" step="0.01" value="0"></div>
-      <div><div class="muted">弓 攻擊</div><input id="initAtk弓" type="number" step="0.01" value="0"></div>
-      <div><div class="muted">騎 攻擊</div><input id="initAtk騎" type="number" step="0.01" value="0"></div>
-      <div><div class="muted">步 生命</div><input id="initHp步"  type="number" step="0.01" value="0"></div>
-      <div><div class="muted">弓 生命</div><input id="initHp弓"  type="number" step="0.01" value="0"></div>
-      <div><div class="muted">騎 生命</div><input id="initHp騎"  type="number" step="0.01" value="0"></div>
-    </div>
-    <div class="hint">最終白字總加成 = 起始 +（基礎白字 + 狂熱）之合計；不含 領主隨隊 與 奇觀。</div>
-    <table style="margin-top:8px">
-      <thead><tr><th>兵種</th><th class="right">攻擊（起始→最終）</th><th class="right">生命（起始→最終）</th></tr></thead>
-      <tbody id="finalBaseTotals"></tbody>
-    </table>
-  </div>
+  <h1>文物性假比 M&X流浪維護</h1>
 
   <!-- 參數 -->
-  <div class="card" style="margin-top:12px">
+  <div class="card">
     <div class="row c4">
       <div><div class="muted">1 點攻擊 = 幾點屬性</div><input id="wAtk" type="number" step="0.01" value="1.00"></div>
       <div><div class="muted">1 點生命 = 幾點屬性</div><input id="wHp"  type="number" step="0.01" value="0.90"></div>
@@ -69,7 +49,27 @@
     <div class="card"><div class="muted">金書 / 金額（元）</div><div id="kCost" style="font-size:22px">0 / 0</div><div class="hint" id="kConv"></div></div>
   </div>
 
-  <!-- 控制列 -->
+  <!-- 流量 KPI（新增 Step 1） -->
+  <div class="row c4" style="margin-top:12px">
+    <div class="card">
+      <div class="muted">今日訪客（近似 UV）</div>
+      <div id="visToday" style="font-size:22px">讀取中…</div>
+    </div>
+    <div class="card">
+      <div class="muted">累計訪客（近似 UV）</div>
+      <div id="visTotal" style="font-size:22px">讀取中…</div>
+    </div>
+    <div class="card">
+      <div class="muted">統計時區</div>
+      <div id="visTime" class="hint">America/Paramaribo</div>
+    </div>
+    <div class="card">
+      <div class="muted">資料來源</div>
+      <div class="hint">CountAPI（無後端、可直接用）</div>
+    </div>
+  </div>
+
+  <!-- 控制列（保留只顯示＋搜尋） -->
   <div class="flex" style="margin:12px 0">
     <span class="pill">排序：元/等價屬性（所有已勾選文物之每一步）</span>
     <span id="cntArtifacts" class="pill">文物：已選 0 / 全部 0</span>
@@ -77,7 +77,7 @@
     <input id="search" placeholder="搜尋名稱…" style="max-width:260px"/>
   </div>
 
-  <!-- 文物清單 -->
+  <!-- 文物清單（當前 → 12 合併，供總體性價比與 KPI 用） -->
   <div class="card">
     <table>
       <thead>
@@ -117,13 +117,13 @@
 
   <!-- 標籤匯總 -->
   <div class="card" style="margin-top:12px">
-    <div class="pill">標籤匯總（狂熱 / 基礎白字 / 領主隨隊 / 奇觀 × 步/弓/騎/全軍）</div>
+    <div class="pill">標籤匯總（狂熱 / 基礎白字 / 領主隨隊 × 步/弓/騎）</div>
     <div id="tagTotals"></div>
   </div>
 
-  <!-- 兵種匯總（不包含「奇觀」） -->
+  <!-- 兵種匯總 -->
   <div class="card" style="margin-top:12px">
-    <div class="pill">兵種匯總（排除「奇觀」）</div>
+    <div class="pill">兵種匯總</div>
     <table>
       <thead><tr><th>兵種</th><th class="right">攻擊</th><th class="right">生命</th><th class="right">等價屬性</th></tr></thead>
       <tbody id="troopTotals"></tbody>
@@ -137,6 +137,84 @@
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const nf = (n,d=2)=> (Math.round((+n||0)*10**d)/10**d).toFixed(d);
+
+/* ---------- 流量統計（Step 2 程式） ---------- */
+/** 統計時區：以 Paramaribo（UTC-3）界定「今日」 */
+const CF_TZ = 'America/Paramaribo';
+/** 命名空間：使用 host+path，盡量避免與其他頁面相撞 */
+const NS = encodeURIComponent(location.host + location.pathname.replace(/\W+/g,'_'));
+
+/** 取得或建立此瀏覽器的唯一 ID（僅用於本地去重，不上傳） */
+function getUid(){
+  let id = localStorage.getItem('mx_uid');
+  if(!id){
+    id = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+    localStorage.setItem('mx_uid', id);
+  }
+  return id;
+}
+
+/** 取得 Paramaribo 時區下的今日 YYYY-MM-DD */
+function todayStr(){
+  const d = new Date(new Date().toLocaleString('en-US',{timeZone: CF_TZ}));
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+/** 對 CountAPI 指定鍵 +1；若鍵不存在會自動建立 */
+async function hit(key){
+  const r = await fetch(`https://api.countapi.xyz/hit/${NS}/${key}`);
+  if(!r.ok) throw new Error('hit '+key+' '+r.status);
+  const j = await r.json();
+  return j.value ?? 0;
+}
+
+/** 讀取 CountAPI 指定鍵值；若不存在則回 0（以 try/catch 包住） */
+async function get(key){
+  const r = await fetch(`https://api.countapi.xyz/get/${NS}/${key}`);
+  if(!r.ok) throw new Error('get '+key+' '+r.status);
+  const j = await r.json();
+  return j.value ?? 0;
+}
+
+/** 更新今日／累計訪客（同瀏覽器每天只記一次、累計只記一次） */
+async function updateTraffic(){
+  // 建立/讀取本地唯一 ID（目前不會上傳，僅保留為擴充預留）
+  const uid = getUid();
+  // 今日字串（以 Paramaribo 為準）
+  const today = todayStr();
+
+  // 累計唯一訪客：此瀏覽器首次造訪才 +1
+  if(!localStorage.getItem('mx_total_counted')){
+    try{
+      await hit('total_unique');
+      localStorage.setItem('mx_total_counted','1');
+    }catch(e){}
+  }
+
+  // 今日唯一訪客：此瀏覽器在「今日」首次造訪才 +1
+  const last = localStorage.getItem('mx_last_counted_date');
+  if(last !== today){
+    try{
+      await hit('day_'+today+'_unique');
+      localStorage.setItem('mx_last_counted_date', today);
+    }catch(e){}
+  }
+
+  // 讀值（就算上面 hit 失敗，也盡量顯示現有值）
+  let total = 0, daily = 0;
+  try{ total = await get('total_unique'); }catch(e){}
+  try{ daily = await get('day_'+today+'_unique'); }catch(e){}
+
+  // 寫回 UI
+  $('#visToday').textContent = daily ? String(daily) : '—';
+  $('#visTotal').textContent = total ? String(total) : '—';
+  $('#visTime').textContent  = `${today} 00:00–23:59 ${CF_TZ}`;
+}
 
 /* 等級累進（祝福、只對 Lv5→12 有意義） */
 const CUM_PCT = {5:0.40,6:0.48,7:0.56,8:0.64,9:0.73,10:0.82,11:0.91,12:1.00};
@@ -159,7 +237,7 @@ async function loadExcel(){
     RAW = rows.map(r=>({
       name:String(r.Artifact).trim(),
       rarity:String(r.Rarity).trim(),
-      base:String(r.Base).trim(),    // 狂熱 / 基礎白字 / 領主隨隊 / 奇觀
+      base:String(r.Base).trim(),    // 狂熱 / 基礎白字 / 領主隨隊
       kind:String(r.Kind).trim(),    // atk / hp
       troop:String(r.Troop).trim(),  // 步 / 弓 / 騎 / 全軍
       label:String(r.Label||'').trim(),
@@ -168,11 +246,11 @@ async function loadExcel(){
     }));
     $('#dataSrc').textContent='資料來源：artifacts.xlsx（同目錄）';
   }catch(e){
-    // 簡易示例
+    // 簡易示例（兩筆）
     RAW = [
       {name:'不朽之鏡',rarity:'金',base:'基礎白字',kind:'atk',troop:'步',label:'atk',total12:9,icon:''},
       {name:'不朽之鏡',rarity:'金',base:'基礎白字',kind:'atk',troop:'騎',label:'atk',total12:9,icon:''},
-      {name:'王者之酒',rarity:'金',base:'奇觀',kind:'hp',troop:'全軍',label:'hp',total12:8,icon:''},
+      {name:'乳酪之星',rarity:'金',base:'狂熱',kind:'atk',troop:'弓',label:'atk',total12:5,icon:''},
     ];
     $('#dataSrc').textContent='未找到 Excel/JSON，已使用 內建示例資料。';
   }
@@ -202,22 +280,19 @@ function collectStepRows(item, fromLv){
   return rows;
 }
 
-/* 聚合到 兵種/標籤 */
 function aggregate(rows, weights){
   const troops = {步:{atk:0,hp:0}, 弓:{atk:0,hp:0}, 騎:{atk:0,hp:0}, 全軍:{atk:0,hp:0}};
-  const emptyTroops = ()=>({步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0},全軍:{atk:0,hp:0}});
-  const byTagTroop = {
-    '狂熱':emptyTroops(),'基礎白字':emptyTroops(),'領主隨隊':emptyTroops(),'奇觀':emptyTroops()
-  };
+  const byTagTroop = { '狂熱':{步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0}},
+                       '基礎白字':{步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0}},
+                       '領主隨隊':{步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0}} };
   for(const r of rows){
     const t = troops[r.troop] || troops.全軍;
     if(r.kind==='atk') t.atk += r.inc;
     if(r.kind==='hp')  t.hp  += r.inc;
-
-    if(!byTagTroop[r.base]) byTagTroop[r.base]=emptyTroops(); // 防呆
-    const bt = byTagTroop[r.base][r.troop] || byTagTroop[r.base].全軍;
-    if(r.kind==='atk') bt.atk += r.inc;
-    if(r.kind==='hp')  bt.hp  += r.inc;
+    if(byTagTroop[r.base] && byTagTroop[r.base][r.troop]){
+      if(r.kind==='atk') byTagTroop[r.base][r.troop].atk += r.inc;
+      if(r.kind==='hp')  byTagTroop[r.base][r.troop].hp  += r.inc;
+    }
   }
   const atk = troops.步.atk + troops.弓.atk + troops.騎.atk + troops.全軍.atk;
   const hp  = troops.步.hp  + troops.弓.hp  + troops.騎.hp  + troops.全軍.hp;
@@ -228,9 +303,10 @@ function aggregate(rows, weights){
 function calcAll(){
   const weights = STATE.weights, price = STATE.price;
   let kAtk=0,kHp=0,kEq=0,kGold=0;
-  const emptyTroops = ()=>({步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0},全軍:{atk:0,hp:0}});
-  const tagSum = {'狂熱':emptyTroops(),'基礎白字':emptyTroops(),'領主隨隊':emptyTroops(),'奇觀':emptyTroops()};
-  const troopSum = {步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0},全軍:{atk:0,hp:0}}; // 排除「奇觀」後累加
+  const tagSum = { '狂熱':{步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0}},
+                   '基礎白字':{步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0}},
+                   '領主隨隊':{步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0}} };
+  const troopSum = {步:{atk:0,hp:0},弓:{atk:0,hp:0},騎:{atk:0,hp:0},全軍:{atk:0,hp:0}};
 
   const listRows = [];
 
@@ -238,35 +314,28 @@ function calcAll(){
     if(STATE.search && !it.name.includes(STATE.search)) continue;
     if(STATE.onlyChecked && !it.checked) continue;
 
-    const chosen = Number(it.lv)||5;
-    if(chosen>=12){
-      // 滿級：本次 0
-      listRows.push({it, agg:aggregate([], weights), gold:0, cost:0, unit:Infinity});
-    }else{
-      const start = Math.max(5, Math.min(11, chosen));
-      let allRows=[], gold=0;
-      for(let lv=start; lv<=11; lv++){
-        allRows = allRows.concat(collectStepRows(it, lv));
-        gold += GOLD_BOOKS_FROM[lv]||0;
-      }
-      const agg = aggregate(allRows, weights);
-      const cost = gold*price, unit = agg.eq>0? cost/agg.eq : Infinity;
-      listRows.push({it, agg, gold, cost, unit});
+    const start = Math.max(5, Math.min(11, Number(it.lv)||5));
+    let allRows=[], gold=0;
+    for(let lv=start; lv<=11; lv++){
+      allRows = allRows.concat(collectStepRows(it, lv));
+      gold += GOLD_BOOKS_FROM[lv]||0;
+    }
+    const agg = aggregate(allRows, weights);
+    const cost = gold*price, unit = agg.eq>0? cost/agg.eq : Infinity;
 
-      if(it.checked){
-        kAtk+=agg.atk; kHp+=agg.hp; kEq+=agg.eq; kGold+=gold;
-        // 標籤匯總
-        for(const tag of Object.keys(tagSum)){
-          for(const t of ['步','弓','騎','全軍']){
-            tagSum[tag][t].atk += agg.byTagTroop[tag][t].atk;
-            tagSum[tag][t].hp  += agg.byTagTroop[tag][t].hp;
-          }
+    listRows.push({it, agg, gold, cost, unit});
+
+    if(it.checked){
+      kAtk+=agg.atk; kHp+=agg.hp; kEq+=agg.eq; kGold+=gold;
+      for(const tag of Object.keys(tagSum)){
+        for(const t of ['步','弓','騎']){
+          tagSum[tag][t].atk += agg.byTagTroop[tag][t].atk;
+          tagSum[tag][t].hp  += agg.byTagTroop[tag][t].hp;
         }
-        // 兵種匯總（排除 奇觀）
-        for(const t of ['步','弓','騎','全軍']){
-          troopSum[t].atk += agg.byTagTroop['狂熱'][t].atk + agg.byTagTroop['基礎白字'][t].atk + agg.byTagTroop['領主隨隊'][t].atk;
-          troopSum[t].hp  += agg.byTagTroop['狂熱'][t].hp  + agg.byTagTroop['基礎白字'][t].hp  + agg.byTagTroop['領主隨隊'][t].hp;
-        }
+      }
+      for(const t of Object.keys(troopSum)){
+        troopSum[t].atk += agg.troops[t].atk;
+        troopSum[t].hp  += agg.troops[t].hp;
       }
     }
   }
@@ -279,11 +348,9 @@ function renderAll(){
   STATE.weights.atk = Number($('#wAtk').value)||1;
   STATE.weights.hp  = Number($('#wHp').value)||0.9;
   STATE.price       = Number($('#price').value)||1.76;
-
   const totalCnt   = ITEMS.length;
   const checkedCnt = ITEMS.reduce((n, it) => n + (it.checked ? 1 : 0), 0);
   const badge = $('#cntArtifacts'); if (badge) badge.textContent = `文物：已選 ${checkedCnt} / 全部 ${totalCnt}`;
-
   const {listRows, kAtk,kHp,kEq,kGold, tagSum, troopSum} = calcAll();
 
   // 左表
@@ -329,7 +396,6 @@ function renderAll(){
 
   renderSteps();        // 逐步性價比（推薦順序）
   renderTotals(tagSum, troopSum);
-  renderFinalBase(tagSum); // 最終白字總加成（起始 + 基礎白字 + 狂熱）
 }
 
 function tdRight(txt){ const td=document.createElement('td'); td.className='right'; td.textContent=txt; return td; }
@@ -342,9 +408,7 @@ function renderSteps(){
 
   for(const it of ITEMS){
     if(!it.checked) continue;
-    const chosen = Number(it.lv)||5;
-    if(chosen>=12) continue; // 滿級不再有步驟
-    const start = Math.max(5, Math.min(11, chosen));
+    const start = Math.max(5, Math.min(11, Number(it.lv)||5));
     for(let lv=start; lv<=11; lv++){
       const rws = collectStepRows(it, lv);
       const agg = aggregate(rws, w);
@@ -373,26 +437,23 @@ function renderSteps(){
   }
 }
 
-/* 標籤匯總 + 兵種匯總（兵種匯總排除奇觀） */
+/* 匯總（標籤＋兵種） */
 function renderTotals(tag, troop){
   const tg = $('#tagTotals'); tg.innerHTML='';
   const renderTag = (name,obj)=>{
     const tbl = document.createElement('table');
     tbl.innerHTML = `
-      <thead><tr><th colspan="5" class="muted">${name}</th></tr>
-      <tr><th>兵種</th><th class="right">攻擊</th><th class="right">生命</th><th class="right">等價屬性</th><th class="right">備註</th></tr></thead>
+      <thead><tr><th colspan="4" class="muted">${name}</th></tr>
+      <tr><th>兵種</th><th class="right">攻擊</th><th class="right">生命</th><th class="right">等價屬性</th></tr></thead>
       <tbody>
-        ${['步','弓','騎','全軍'].map(t=>{
+        ${['步','弓','騎'].map(t=>{
           const atk=obj[t].atk, hp=obj[t].hp, eq=atk*STATE.weights.atk + hp*STATE.weights.hp;
-          return `<tr><td>${t}</td><td class="right">${nf(atk)}</td><td class="right">${nf(hp)}</td><td class="right">${nf(eq)}</td><td></td></tr>`;
+          return `<tr><td>${t}</td><td class="right">${nf(atk)}</td><td class="right">${nf(hp)}</td><td class="right">${nf(eq)}</td></tr>`;
         }).join('')}
       </tbody>`;
     tg.appendChild(tbl);
   };
-  renderTag('狂熱', tag['狂熱']);
-  renderTag('基礎白字', tag['基礎白字']);
-  renderTag('領主隨隊', tag['領主隨隊']);
-  renderTag('奇觀', tag['奇觀']);
+  renderTag('狂熱', tag['狂熱']); renderTag('基礎白字', tag['基礎白字']); renderTag('領主隨隊', tag['領主隨隊']);
 
   const tt = $('#troopTotals'); tt.innerHTML='';
   for(const t of ['步','弓','騎','全軍']){
@@ -402,31 +463,16 @@ function renderTotals(tag, troop){
   }
 }
 
-/* 最終白字總加成（起始 + 基礎白字 + 狂熱，不含 領主隨隊/奇觀） */
-function renderFinalBase(tagSum){
-  const get = id => Number($(id).value)||0;
-  const initAtk = {步:get('#initAtk步'),弓:get('#initAtk弓'),騎:get('#initAtk騎')};
-  const initHp  = {步:get('#initHp步'), 弓:get('#initHp弓'),  騎:get('#initHp騎')};
-
-  const tbody = $('#finalBaseTotals'); tbody.innerHTML='';
-  ['步','弓','騎'].forEach(t=>{
-    const addAtk = (tagSum['基礎白字'][t].atk + tagSum['狂熱'][t].atk);
-    const addHp  = (tagSum['基礎白字'][t].hp  + tagSum['狂熱'][t].hp);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${t}</td>
-      <td class="right">${nf(initAtk[t])} → ${nf(initAtk[t] + addAtk)}</td>
-      <td class="right">${nf(initHp[t])}  → ${nf(initHp[t]  + addHp)}</td>`;
-    tbody.appendChild(tr);
-  });
-}
-
 /* 事件 */
-['#wAtk','#wHp','#price','#initAtk步','#initAtk弓','#initAtk騎','#initHp步','#initHp弓','#initHp騎']
-  .forEach(sel=>$(sel).addEventListener('input',renderAll));
+$('#wAtk').addEventListener('input',renderAll);
+$('#wHp').addEventListener('input',renderAll);
+$('#price').addEventListener('input',renderAll);
 $('#onlyChecked').addEventListener('change',e=>{STATE.onlyChecked=e.target.checked;renderAll();});
 $('#search').addEventListener('input',e=>{STATE.search=e.target.value.trim();renderAll();});
 
+/* 初始化：載入資料 +（Step 3）更新流量 */
 loadExcel();
+updateTraffic();  // ← 新增：頁面載入時寫入並顯示 今日／累計訪客
 </script>
 </body>
 </html>
